@@ -1,10 +1,12 @@
-from __future__ import print_function
 import pickle
 import os
 import os.path
+import json
+import base64
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from idna import unicode
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
@@ -26,24 +28,49 @@ def auth():
 
     service = build('gmail', 'v1', credentials=creds)
 
-    results = service.users().labels().list(userId='me').execute()
-    labels = results.get('labels', [])
+    print_emails(service)
+    logout()
 
-    if not labels:
-        print('No labels found.')
-    else:
-        print('Labels:')
-        for label in labels:
-            print(label['name'])
 
-    print('Do you want to logout? y/n')
-    if input() == 'y':
-        logout()
+def print_emails(service):
+    result = service.users().messages().list(userId='me').execute()
+    messages = result.get('messages')
+    emails = []
+
+    for msg in messages:
+        txt = service.users().messages().get(userId='me', id=msg['id']).execute()
+        try:
+            payload = txt['payload']
+            headers = payload['headers']
+            subject = ''
+            sender = ''
+            for d in headers:
+                if d['name'] == 'Subject':
+                    subject = d['value']
+                if d['name'] == 'From':
+                    sender = d['value']
+            parts = payload.get('parts')[0]
+            data = parts['body']['data']
+            data = data.replace("-", "+").replace("_", "/")
+            body = unicode(base64.b64decode(data), 'utf-8')
+            mail = dict()
+            mail['subject'] = str(subject)
+            mail['from'] = str(sender)
+            mail['message'] = str(body)
+            emails.append(mail)
+        except:
+            pass
+
+    f = open('test.json', 'w', encoding="utf-8")
+    f.write(json.dumps(emails, indent=4, ensure_ascii=False))
+    f.close()
 
 
 def logout():
-    if os.path.exists('token.pickle'):
-        os.remove(os.path.abspath('token.pickle'))
+    print('Do you want to logout? y/n')
+    if input() == 'y':
+        if os.path.exists('token.pickle'):
+            os.remove(os.path.abspath('token.pickle'))
 
 
 if __name__ == '__main__':
