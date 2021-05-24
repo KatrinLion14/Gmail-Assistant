@@ -1,29 +1,11 @@
 import configparser
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
-from gui_test.log_in_window import StartWindow
 from gui_test.main_window import Ui_MainWindow
 from test import log_in, log_out, add_word, add_keyword_section, delete_word, delete_section, get_emails, \
     get_all_emails, find_urgent_emails, find_keywords_emails, get_attachment, check_labs, \
     check_course_projects, name_config
 import sys
-
-
-class start_window(QtWidgets.QMainWindow):
-    service = 0
-    def __init__(self):
-        super(start_window, self).__init__()
-        self.start = StartWindow()
-        self.iniUI()
-
-    def iniUI(self):
-        self.start.setupUi(self)
-        log_in_button = self.start.pushButton
-        log_in_button.clicked.connect(self.logging)
-
-    def logging(self):
-        self.service = log_in()
-        self.start.label_2.setText("Success!\nNow you can close this window")
 
 
 class main_window(QtWidgets.QMainWindow):
@@ -33,8 +15,6 @@ class main_window(QtWidgets.QMainWindow):
     def __init__(self):
         super(main_window, self).__init__()
         self.ui = Ui_MainWindow()
-        # self.start = start_window()
-        # self.start.show()
         self.iniUI()
 
     def iniUI(self):
@@ -232,7 +212,5 @@ def show_start():
 app = QtWidgets.QApplication([])
 application = main_window()
 application.show()
-# window = start_window()
-# window.show()
 
 sys.exit(app.exec())
