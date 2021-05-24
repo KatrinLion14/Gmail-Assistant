@@ -129,19 +129,25 @@ def add_keyword_section(section_name, keywords):
         with open(name_config, 'w') as configfile:
             config.write(configfile)
     except:
-        print('Such section already exists. Do you want to make new one or add to old? 1 or 2')
-        answer = int(input())
-        if answer == 1:
-            print('Give new name')
-            section_name = input()
-            add_keyword_section(section_name, keywords)
-        elif answer == 2:
-            i = len(config[section_name])
-            for word in keywords:
-                config.set(section_name, 'word' + str(i), word)
-                i += 1
-            with open(name_config, 'w') as configfile:
-                config.write(configfile)
+        # print('Such section already exists. Do you want to make new one or add to old? 1 or 2')
+        # answer = int(input())
+        # if answer == 1:
+        #     print('Give new name')
+        #     section_name = input()
+        #     add_keyword_section(section_name, keywords)
+        # elif answer == 2:
+        #     i = len(config[section_name])
+        #     for word in keywords:
+        #         config.set(section_name, 'word' + str(i), word)
+        #         i += 1
+        #     with open(name_config, 'w') as configfile:
+        #         config.write(configfile)
+        i = len(config[section_name])
+        for word in keywords:
+            config.set(section_name, 'word' + str(i), word)
+            i += 1
+        with open(name_config, 'w') as configfile:
+            config.write(configfile)
 
 
 def add_word(section_name, word):
@@ -186,7 +192,7 @@ def make_keywords(section_name):
     return keywords
 
 
-def find_keywords_emails(service, query, section_name, file_name, file_type):
+def find_keywords_emails(service, query, section_name, file_name, file_type, path):
     emails = get_emails(service, query)
     keyword_emails = []
     keywords = make_keywords(section_name)
@@ -194,22 +200,24 @@ def find_keywords_emails(service, query, section_name, file_name, file_type):
         for word in keywords:
             if (word in mail['message']) or (word in mail['subject']):
                 keyword_emails.append(mail)
+    if file_name == '':
+        file_name = section_name
     name = str(file_name) + '_messages'
-    print_emails(name, keyword_emails, file_type)
+    print_emails(path + name, keyword_emails, file_type)
 
 
-def find_urgent_emails(service, file_type):
+def find_urgent_emails(service, query, file_type, path):
     urgent_keywords = []
     config = configparser.ConfigParser()
     config.read(name_config)
     for word in config['urgent_words']:
         urgent_keywords.append(config['urgent_words'][word])
-    find_keywords_emails(service, '', urgent_keywords, 'urgent', file_type)
+    find_keywords_emails(service, query, urgent_keywords, 'urgent', file_type, path)
 
 
-def get_all_emails(service, file_type):
-    emails = get_emails(service, '')
-    print_emails('all_emails', emails, file_type)
+def get_all_emails(service, query, file_type, path):
+    emails = get_emails(service, query)
+    print_emails(path + 'all_emails', emails, file_type)
 
 
 def print_emails(name, emails, file_type):
@@ -224,11 +232,11 @@ def print_emails(name, emails, file_type):
         mail_to_json(file_name, emails)
 
 
-def check_labs(emails, labs_number, filename):
+def check_labs(emails, labs_number, filename, path):
     name_addresses_labs = dict()
     wrong_emails = []
     try:    # если файл существует, откроем
-        wb = load_workbook(filename + '.xlsx')
+        wb = load_workbook(path + filename + '.xlsx')
         ws = wb.active
         count_rows = ws.max_row
         for i in range(2, count_rows + 1):
@@ -261,14 +269,14 @@ def check_labs(emails, labs_number, filename):
                         wrong_mail['body'] = 'Invalid name. Message: ' + mail['message']
                         wrong_mail['attachment names'] = mail['attachment_names']
                         wrong_emails.append(wrong_mail)
-    print_emails('wrong_' + str(filename), wrong_emails, 0)
-    wb.save(str(filename) + '.xlsx')
+    print_emails(path + 'wrong_' + str(filename), wrong_emails, 0)
+    wb.save(path + str(filename) + '.xlsx')
 
 
-def check_course_projects(emails, filename, group_number, file_type):
+def check_course_projects(emails, filename, group_number, file_type, path):
     wrong_emails = []
     try:  # если файл существует, откроем
-        wb = load_workbook(filename + '.xlsx')
+        wb = load_workbook(path + filename + '.xlsx')
         ws = wb.active
         count_rows = ws.max_row
     except:  # если новый, создадим
@@ -290,33 +298,20 @@ def check_course_projects(emails, filename, group_number, file_type):
                         wrong_mail['body'] = 'Invalid name. Message: ' + mail['message']
                         wrong_mail['attachment names'] = mail['attachment_names']
                         wrong_emails.append(wrong_mail)
-    print_emails('wrong_' + str(filename), wrong_emails, 0)
-    wb.save(str(filename) + '.xlsx')
+    print_emails(path + 'wrong_' + str(filename), wrong_emails, 0)
+    wb.save(path + str(filename) + '.xlsx')
 
 
-def logout():
-    print('Do you want to logout? y/n')
-    if input() == 'y':
-        if os.path.exists('token.pickle'):
-            os.remove(os.path.abspath('token.pickle'))
+def log_out():
+    if os.path.exists('token.pickle'):
+        os.remove(os.path.abspath('token.pickle'))
 
 
 def main():
     start_time = time.time()
     service = log_in()
-    add_word('urgent_words', 'test')
-    # print_emails('test', get_emails(service, 'before:2014/02/01'), 0)
-    # words = ['test', 'first', 'second']
-    # make_new_keyword_section('test', words)
-    # print(section_names)
-    # get_all_emails(service, 0)
-    # get_all_emails(service, 1)
-    # check_course_projects(get_emails(service, 'before:2014/02/01'), 'check_projects', '19ПИ-2', 'pdf')
-    # find_urgent_emails(service, 0)
-    # keyword = []
-    # keyword.append('Testing')
-    # find_keywords_emails(service, '', keyword, 'testing', 0)
-    # logout()
+    find_keywords_emails(service, '', 'keyword', 'testing', 0, '')
+    log_out()
     print("\n\nTIME: ", time.time() - start_time)
 
 
