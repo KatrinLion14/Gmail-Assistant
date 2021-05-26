@@ -14,7 +14,6 @@ from openpyxl import Workbook, load_workbook
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 name_config = 'config.ini'
-section_names = ['urgent_words', 'words_for_labs']
 
 
 def log_in():
@@ -68,11 +67,8 @@ def get_emails(service, query):
     if result['resultSizeEstimate'] != 0:
         messages = result.get('messages')
         emails = []
-        # txts = []
         for msg in messages:
             txt = service.users().messages().get(userId='me', id=msg['id']).execute()
-            # txts.append(txt)
-            # print(txt)
             try:
                 payload = txt['payload']
                 headers = payload['headers']
@@ -108,12 +104,47 @@ def get_emails(service, query):
 
 
 def get_attachment(service, messageId, id, prefix, filename):
-    att = service.users().messages().attachments().get(userId='me', messageId=messageId, id=id).execute()
-    data = att['data']
-    file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
-    path = prefix + filename
-    with open(path, 'wb') as f:
-        f.write(file_data)
+    if id == '':
+        txt = service.users().messages().get(userId='me', id=messageId).execute()
+        try:
+            payload = txt['payload']
+            parts = payload.get('parts')[0]
+            if 'parts' in parts:
+                attachment_names = list()
+                attachment_ids = list()
+                for i in range(1, len(payload['parts'])):
+                    attachment_names.append(payload['parts'][i]['filename'])
+                    attachment_ids.append(payload['parts'][i]['body']['attachmentId'])
+                i = 0
+                for attachment in attachment_ids:
+                    get_attachment(service, messageId, attachment, prefix, attachment_names[i])
+                    i += 1
+        except:
+            return
+    elif filename == '':
+        txt = service.users().messages().get(userId='me', id=messageId).execute()
+        try:
+            payload = txt['payload']
+            parts = payload.get('parts')[0]
+            if 'parts' in parts:
+                attachment_names = list()
+                attachment_ids = list()
+                for i in range(1, len(payload['parts'])):
+                    attachment_names.append(payload['parts'][i]['filename'])
+                    attachment_ids.append(payload['parts'][i]['body']['attachmentId'])
+                i = 0
+                while attachment_ids[i] != id:
+                    i += 1
+                get_attachment(service, messageId, id, prefix, attachment_names[i])
+        except:
+            return
+    else:
+        att = service.users().messages().attachments().get(userId='me', messageId=messageId, id=id).execute()
+        data = att['data']
+        file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
+        path = prefix + filename
+        with open(path, 'wb') as f:
+            f.write(file_data)
 
 
 def add_keyword_section(section_name, keywords):
@@ -121,7 +152,6 @@ def add_keyword_section(section_name, keywords):
     config.read(name_config)
     try:
         config.add_section(section_name)
-        section_names.append(section_name)
         i = 0
         for word in keywords:
             config.set(section_name, 'word' + str(i), word)
@@ -177,17 +207,21 @@ def delete_word(section_name, word):
             for item in config[section]:
                 if config[section][item] == word:
                     config.remove_option(section, item)
+        with open(name_config, 'w') as configfile:
+            config.write(configfile)
     else:
         for item in config[section_name]:
             if config[section_name][item] == word:
                 config.remove_option(section_name, item)
+        with open(name_config, 'w') as configfile:
+            config.write(configfile)
 
 
 def make_keywords(section_name):
     keywords = []
     config = configparser.ConfigParser()
     config.read(name_config)
-    for word in config[section_name]:
+    for word in config[str(section_name)]:
         keywords.append(config[section_name][word])
     return keywords
 
@@ -206,18 +240,13 @@ def find_keywords_emails(service, query, section_name, file_name, file_type, pat
     print_emails(path + name, keyword_emails, file_type)
 
 
-def find_urgent_emails(service, query, file_type, path):
-    urgent_keywords = []
-    config = configparser.ConfigParser()
-    config.read(name_config)
-    for word in config['urgent_words']:
-        urgent_keywords.append(config['urgent_words'][word])
-    find_keywords_emails(service, query, urgent_keywords, 'urgent', file_type, path)
+def find_urgent_emails(service, query, file_type, path, filename):
+    find_keywords_emails(service, query, 'urgent_words', filename, file_type, path)
 
 
-def get_all_emails(service, query, file_type, path):
+def get_all_emails(service, query, file_type, path, filename):
     emails = get_emails(service, query)
-    print_emails(path + 'all_emails', emails, file_type)
+    print_emails(path + filename, emails, file_type)
 
 
 def print_emails(name, emails, file_type):
@@ -310,8 +339,6 @@ def log_out():
 def main():
     start_time = time.time()
     service = log_in()
-    find_keywords_emails(service, '', 'keyword', 'testing', 0, '')
-    log_out()
     print("\n\nTIME: ", time.time() - start_time)
 
 
