@@ -2,7 +2,7 @@ import configparser
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from main_window import Ui_MainWindow
-from test import log_in, log_out, add_word, add_keyword_section, delete_word, delete_section, get_emails, \
+from functions import log_in, log_out, add_word, add_keyword_section, delete_word, delete_section, get_emails, \
     get_all_emails, find_urgent_emails, find_keywords_emails, get_attachment, check_labs, \
     check_course_projects, name_config
 import sys
