@@ -61,12 +61,52 @@ def mail_to_txt(mail, name):
                    + unicode(mail[key]) + '\n')
 
 
+def get_emails_for_show(service, query):
+    result = service.users().messages().list(userId='me', q=query).execute()
+    emails = dict()
+    if result['resultSizeEstimate'] != 0:
+        messages = result.get('messages')
+        for msg in messages:
+            txt = service.users().messages().get(userId='me', id=msg['id']).execute()
+            try:
+                payload = txt['payload']
+                headers = payload['headers']
+                mail = dict()
+                mail['id'] = txt['id']
+                subject = ''
+                sender = ''
+                for d in headers:
+                    if d['name'] == 'Subject':
+                        subject = d['value']
+                    if d['name'] == 'From':
+                        sender = d['value']
+                parts = payload.get('parts')[0]
+                if 'parts' in parts:
+                    data = parts['parts'][0]['body']['data']
+                    mail['attachment'] = 'true'
+                    mail['attachment_names'] = list()
+                    mail['attachment_ids'] = list()
+                    for i in range(1, len(payload['parts'])):
+                        mail['attachment_names'].append(payload['parts'][i]['filename'])
+                        mail['attachment_ids'].append(payload['parts'][i]['body']['attachmentId'])
+                else:
+                    data = parts['body']['data']
+                    mail['attachment'] = 'false'
+                body = decoding_message(data)
+                mail['subject'] = str(subject)
+                mail['from'] = str(sender)
+                mail['message'] = str(body)
+                emails[mail['id']] = mail
+            except:
+                pass
+    return emails
+
+
 def get_emails(service, query):
     result = service.users().messages().list(userId='me', q=query).execute()
     emails = []
     if result['resultSizeEstimate'] != 0:
         messages = result.get('messages')
-        emails = []
         for msg in messages:
             txt = service.users().messages().get(userId='me', id=msg['id']).execute()
             try:
@@ -121,23 +161,6 @@ def get_attachment(service, messageId, id, prefix, filename):
                     i += 1
         except:
             return
-    elif filename == '':
-        txt = service.users().messages().get(userId='me', id=messageId).execute()
-        try:
-            payload = txt['payload']
-            parts = payload.get('parts')[0]
-            if 'parts' in parts:
-                attachment_names = list()
-                attachment_ids = list()
-                for i in range(1, len(payload['parts'])):
-                    attachment_names.append(payload['parts'][i]['filename'])
-                    attachment_ids.append(payload['parts'][i]['body']['attachmentId'])
-                i = 0
-                while attachment_ids[i] != id:
-                    i += 1
-                get_attachment(service, messageId, id, prefix, attachment_names[i])
-        except:
-            return
     else:
         att = service.users().messages().attachments().get(userId='me', messageId=messageId, id=id).execute()
         data = att['data']
@@ -159,19 +182,6 @@ def add_keyword_section(section_name, keywords):
         with open(name_config, 'w') as configfile:
             config.write(configfile)
     except:
-        # print('Such section already exists. Do you want to make new one or add to old? 1 or 2')
-        # answer = int(input())
-        # if answer == 1:
-        #     print('Give new name')
-        #     section_name = input()
-        #     add_keyword_section(section_name, keywords)
-        # elif answer == 2:
-        #     i = len(config[section_name])
-        #     for word in keywords:
-        #         config.set(section_name, 'word' + str(i), word)
-        #         i += 1
-        #     with open(name_config, 'w') as configfile:
-        #         config.write(configfile)
         i = len(config[section_name])
         for word in keywords:
             config.set(section_name, 'word' + str(i), word)
@@ -224,6 +234,17 @@ def make_keywords(section_name):
     for word in config[str(section_name)]:
         keywords.append(config[section_name][word])
     return keywords
+
+
+def find_keywords_emails_for_show(service, query, section_name):
+    emails = get_emails(service, query)
+    keyword_emails = dict()
+    keywords = make_keywords(section_name)
+    for mail in emails:
+        for word in keywords:
+            if (word in mail['message']) or (word in mail['subject']):
+                keyword_emails[mail['id']] = mail
+    return keyword_emails
 
 
 def find_keywords_emails(service, query, section_name, file_name, file_type, path):
@@ -339,6 +360,20 @@ def log_out():
 def main():
     start_time = time.time()
     service = log_in()
+    config = configparser.ConfigParser()
+    config.read(name_config)
+    # print_emails('test', get_emails(service, 'before:2014/02/01'), 0)
+    # words = ['test', 'first', 'second']
+    # make_new_keyword_section('test', words)
+    # print(section_names)
+    # get_all_emails(service, 0)
+    # get_all_emails(service, 1)
+    # check_course_projects(get_emails(service, 'before:2014/02/01'), 'check_projects', '19ПИ-2', 'pdf')
+    # find_urgent_emails(service, 0)
+    # keyword = []
+    # keyword.append('Testing')
+    # find_keywords_emails(service, '', keyword, 'testing', 0)
+    # logout()
     print("\n\nTIME: ", time.time() - start_time)
 
 
